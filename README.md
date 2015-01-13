@@ -12,7 +12,7 @@ modifications (such as adding a capacitor to a spare pin of the
 attiny). The method presented in this firmware can be used on a stock 
 nanjg driver.
 
-Off-time memory is implemented by storing a flag in an area of 
+Off-time mode switching is implemented by storing a flag in an area of 
 memory that does not get initialized. There is enough energy stored in 
 the decoupling capacitor to power the SRAM and keep data during power 
 off for about 500ms.
