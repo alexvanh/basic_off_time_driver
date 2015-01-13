@@ -62,8 +62,8 @@
 
 // store in uninitialized memory so it will not be overwritten and
 // can still be read at startup after short (<500ms) power off
-uint8_t noinit_decay __attribute__ ((section (".noinit")));
-uint8_t noinit_mode __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 
 
 int main(void)
