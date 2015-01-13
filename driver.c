@@ -68,13 +68,7 @@ volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 
 int main(void)
 {
-    // it seems data from before power off must be copied
-    // ASAP after start up
-    uint8_t mode = noinit_mode;
-    uint8_t decay = noinit_decay; // true if memory has decayed
-
-
-    // PWM setup 
+	// PWM setup 
     // set PWM pin to output
     DDRB |= _BV(PWM_PIN);
     // PORTB = 0x00; // initialised to 0 anyway
@@ -87,16 +81,16 @@ int main(void)
 
     // memory has decayed or mode needs to loop back around
     // (or the mode is invalid)
-    if (decay || mode > 3) // there are 4 modes
+    if (noinit_decay || noinit_mode > 3) // there are 4 modes
     {
-        mode = 0;
+        noinit_mode = 0;
     }
 
     // set noinit data for next boot
     noinit_decay = 0;
-    noinit_mode = mode + 1;
 
-    switch(mode){
+
+    switch(noinit_mode){
         case 0:
         PWM_LVL = 0xFF;
         break;
@@ -110,7 +104,9 @@ int main(void)
         PWM_LVL = 0x04;
         break;
     }
-
+    // increment mode for next boot
+    ++noinit_mode;
+    
     while(1);
     return 0;
 }
