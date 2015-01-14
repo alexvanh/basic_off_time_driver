@@ -47,11 +47,16 @@
  * capacitor voltage drops below the threshold?
  */
 
+#define F_CPU 4800000
 #include <avr/io.h>
 #include <stdlib.h>
+#include <util/delay.h>
+#include <avr/eeprom.h>
+#include <avr/pgmspace.h> 
 
+// disable mode memory.
+#define NO_MODE_MEMORY
 
-#define F_CPU 4800000
 
 // PWM configuration
 #define PWM_PIN PB1
@@ -63,8 +68,9 @@
 // store in uninitialized memory so it will not be overwritten and
 // can still be read at startup after short (<500ms) power off
 volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
-volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
+//volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 
+uint8_t EEMEM MODE_P;
 
 int main(void)
 {
@@ -79,18 +85,35 @@ int main(void)
 
     PWM_LVL = 0;
 
-    // memory has decayed or mode needs to loop back around
-    // (or the mode is invalid)
-    if (noinit_decay || noinit_mode > 3) // there are 4 modes
-    {
-        noinit_mode = 0;
-    }
+	
+	uint8_t mode =  eeprom_read_byte(&MODE_P);
+	
+	#ifdef 	NO_MODE_MEMORY
+	if (noinit_decay) // not short press, forget mode
+	{
+		mode = 0;
+	}
+	#endif
+	
+	if (!noinit_decay) // no decay, it was a short press
+	{
+		++mode;
+	}
 
     // set noinit data for next boot
     noinit_decay = 0;
 
+    // mode needs to loop back around
+    // (or the mode is invalid)
+    if (mode > 3) // there are 4 modes
+    {
+        mode = 0;
+    }
+    
+    eeprom_busy_wait(); //make sure eeprom is ready
+	eeprom_write_byte(&MODE_P, mode);
 
-    switch(noinit_mode){
+    switch(mode){
         case 0:
         PWM_LVL = 0xFF;
         break;
@@ -104,8 +127,6 @@ int main(void)
         PWM_LVL = 0x04;
         break;
     }
-    // increment mode for next boot
-    ++noinit_mode;
     
     while(1);
     return 0;
