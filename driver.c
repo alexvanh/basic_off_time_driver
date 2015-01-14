@@ -64,13 +64,43 @@
 #define PWM_TCR 0x21
 #define PWM_SCL 0x01
 
+// brightness steps too large at lower end
+#define SINUSOID 4, 4, 5, 6, 8, 10, 13, 16, 20, 24, 28, 33, 39, 44, 50, 57, 63, 70, 77, 85, 92, 100, 108, 116, 124, 131, 139, 147, 155, 163, 171, 178, 185, 192, 199, 206, 212, 218, 223, 228, 233, 237, 241, 244, 247, 250, 252, 253, 254, 255, 255, 254, 253, 252, 250, 247, 244, 241, 237, 233, 228, 223, 218, 212, 206, 199, 192, 185, 178, 171, 163, 155, 147, 139, 131, 124, 116, 108, 100, 92, 85, 77, 70, 63, 57, 50, 44, 39, 33, 28, 24, 20, 16, 13, 10, 8, 6, 5, 4, 4
+
+// natural log of a sinusoid, spends too long at lowest levels
+#define LN_SINUSOID 5, 5, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14, 16, 18, 21, 24, 27, 32, 37, 43, 50, 58, 67, 77, 88, 101, 114, 128, 143, 158, 174, 189, 203, 216, 228, 239, 246, 252, 255, 255, 252, 246, 239, 228, 216, 203, 189, 174, 158, 143, 128, 114, 101, 88, 77, 67, 58, 50, 43, 37, 32, 27, 24, 21, 18, 16, 14, 12, 11, 10, 9, 8, 8, 7, 7, 6, 6, 6, 6, 6, 5, 5, 5, 5, 5, 5, 5, 5, 5
+// store in program memory. It would use too much SRAM.
+uint8_t const ramp_LUT[] PROGMEM = { LN_SINUSOID };
 
 // store in uninitialized memory so it will not be overwritten and
 // can still be read at startup after short (<500ms) power off
 volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
-//volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
 
 uint8_t EEMEM MODE_P;
+
+/* Ramping brightness selection
+ * cycle through PWM values from ramp_LUT (look up table). current PWM 
+ * value is saved in noinit_lvl so it is available at next startup 
+ * (after a short press)
+*/
+void ramp()
+{
+	uint8_t i = 0;
+	uint8_t j = 0;
+	while (1){
+		for (i = 0; i < sizeof(ramp_LUT); i++){
+			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+			noinit_lvl = PWM_LVL; // remember after short power off
+			_delay_ms(60); //gives a period of x seconds
+		}
+		j++;
+		
+		//_delay_ms(1000);
+	}
+}
+
+
 
 int main(void)
 {
@@ -105,13 +135,13 @@ int main(void)
 
     // mode needs to loop back around
     // (or the mode is invalid)
-    if (mode > 3) // there are 4 modes
+    if (mode > 5) // there are 6 modes
     {
         mode = 0;
     }
     
     eeprom_busy_wait(); //make sure eeprom is ready
-	eeprom_write_byte(&MODE_P, mode);
+	eeprom_write_byte(&MODE_P, mode); // save mode
 
     switch(mode){
         case 0:
@@ -125,6 +155,12 @@ int main(void)
         break;
         case 3:
         PWM_LVL = 0x04;
+        break;
+        case 4:
+        ramp(); // ramping brightness selection
+        break;
+        case 5:
+        PWM_LVL = noinit_lvl; // use value selected by ramping function
         break;
     }
     
