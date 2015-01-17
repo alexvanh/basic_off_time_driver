@@ -79,27 +79,47 @@ volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
 
 uint8_t EEMEM MODE_P;
 
-/* Ramping brightness selection
- * cycle through PWM values from ramp_LUT (look up table). current PWM 
- * value is saved in noinit_lvl so it is available at next startup 
- * (after a short press)
+/* Rise-Fall Ramping brightness selection /\/\/\/\
+ * cycle through PWM values from ramp_LUT (look up table). Traverse LUT 
+ * forwards, then backwards. Current PWM value is saved in noinit_lvl so
+ *  it is available at next startup (after a short press).
 */
 void ramp()
 {
 	uint8_t i = 0;
-	uint8_t j = 0;
 	while (1){
 		for (i = 0; i < sizeof(ramp_LUT); i++){
 			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
 			noinit_lvl = PWM_LVL; // remember after short power off
 			_delay_ms(60); //gives a period of x seconds
 		}
-		j++;
+		for (i = sizeof(ramp_LUT) - 1; i > 0; i--){
+			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+			noinit_lvl = PWM_LVL; // remember after short power off
+			_delay_ms(60); //gives a period of x seconds
+		}
+		
+	}
+}
+
+/* Rising Ramping brightness selection //////
+ * Cycle through PWM values from ramp_LUT (look up table). Current PWM 
+ * value is saved in noinit_lvl so it is available at next startup 
+ * (after a short press)
+*/
+void ramp2()
+{
+	uint8_t i = 0;
+	while (1){
+		for (i = 0; i < sizeof(ramp_LUT); i++){
+			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+			noinit_lvl = PWM_LVL; // remember after short power off
+			_delay_ms(60); //gives a period of x seconds
+		}
 		
 		//_delay_ms(1000);
 	}
 }
-
 
 
 int main(void)
