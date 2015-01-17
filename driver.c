@@ -104,12 +104,12 @@ void ramp()
 		for (i = 0; i < sizeof(ramp_LUT); i++){
 			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
 			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(60); //gives a period of x seconds
+			_delay_ms(RAMP_DELAY); //gives a period of x seconds
 		}
 		for (i = sizeof(ramp_LUT) - 1; i > 0; i--){
 			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
 			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(60); //gives a period of x seconds
+			_delay_ms(RAMP_DELAY); //gives a period of x seconds
 		}
 		
 	}
@@ -127,7 +127,7 @@ void ramp2()
 		for (i = 0; i < sizeof(ramp_LUT); i++){
 			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
 			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(60); //gives a period of x seconds
+			_delay_ms(RAMP_DELAY); //gives a period of x seconds
 		}
 		
 		//_delay_ms(1000);
