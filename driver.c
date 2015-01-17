@@ -54,7 +54,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h> 
 
-//#define MODE_MEMORY
+#define MODE_MEMORY
 
 #ifdef MODE_MEMORY
 uint8_t EEMEM MODE_P;
@@ -155,6 +155,11 @@ int main(void)
 	
 	noinit_mode =  eeprom_read_byte(&MODE_P);
 	
+	// skip ramp selected mode (mode 5) if the selected level was lost
+	if (noinit_decay && noinit_mode == 5)
+	{
+		++noinit_mode;
+	}
 	#else // try to use mode from sram
 	
 	if (noinit_decay) // not short press, forget mode
