@@ -54,15 +54,17 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h> 
 
-// disable mode memory.
-#define NO_MODE_MEMORY
+//#define MODE_MEMORY
 
+#ifdef MODE_MEMORY
 uint8_t EEMEM MODE_P;
+#endif
 
 // store in uninitialized memory so it will not be overwritten and
 // can still be read at startup after short (<500ms) power off
 // decay used to tell if user did a short press.
 volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 // pwm level selected by ramping function
 volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
 
@@ -148,20 +150,22 @@ int main(void)
     TCCR0B = PWM_SCL;
 
     PWM_LVL = 0;
-
 	
-	uint8_t mode =  eeprom_read_byte(&MODE_P);
+	#ifdef 	MODE_MEMORY // get mode from eeprom
 	
-	#ifdef 	NO_MODE_MEMORY
+	noinit_mode =  eeprom_read_byte(&MODE_P);
+	
+	#else // try to use mode from sram
+	
 	if (noinit_decay) // not short press, forget mode
 	{
-		mode = 0;
+		noinit_mode = 0;
 	}
 	#endif
 	
 	if (!noinit_decay) // no decay, it was a short press
 	{
-		++mode;
+		++noinit_mode;
 	}
 
     // set noinit data for next boot
@@ -169,15 +173,17 @@ int main(void)
 
     // mode needs to loop back around
     // (or the mode is invalid)
-    if (mode > 5) // there are 6 modes
+    if (noinit_mode > 5) // there are 6 modes
     {
-        mode = 0;
+        noinit_mode = 0;
     }
     
+    #ifdef 	MODE_MEMORY // remember mode in eeprom
     eeprom_busy_wait(); //make sure eeprom is ready
-	eeprom_write_byte(&MODE_P, mode); // save mode
-
-    switch(mode){
+	eeprom_write_byte(&MODE_P, noinit_mode); // save mode
+	#endif
+	
+    switch(noinit_mode){
         case 0:
         PWM_LVL = 0xFF;
         break;
