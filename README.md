@@ -1,11 +1,16 @@
 # basic_off_time_driver
-Flashlight driver firmware demonstrating method of using off-time to 
+Flashlight driver firmware with ramping using off-time to 
 switch modes on attiny13 nanjg drivers.
 
-The flashlight driver has 4 modes: high, medium, low, moonlight
-The light always comes on in high mode (no mode memory). To change modes
-the user must turn the flashlight off then on in less than about 500ms 
-(off-time mode switching), by quickly pressing the switch halfway.
+The flashlight driver has 6 modes: 
+high, medium, low, moonlight, smooth ramp, ramp selection
+
+The driver has optional mode memory, enabled if MODE_MEMORY is defined. 
+To change modes the user must turn the flashlight off then on in less 
+than about 500ms (off-time mode switching), such as by quickly pressing
+the switch halfway. The smooth ramp mode fades the light in and out. A 
+short press puts the light into ramp selection mode, where the
+brightness is the level selected in the ramp mode.
 
 Previously off-time mode switching was not possible without hardware
 modifications (such as adding a capacitor to a spare pin of the 
@@ -32,6 +37,11 @@ In order for this to work brown-out detection must be enabled by
 setting the correct fuse bits. I'm not sure why this is, maybe
 reduced current consumption due to the reset being held once the
 capacitor voltage drops below the threshold?
+
+The smooth ramping mode uses the ram retention method described above.
+Without ram retention, the ramp selection would rely on the eeprom. The
+large number of writes required by the smooth ramp could cause the 
+eeprom to fail if left on for an extended amount of time.
 
 Example of working fuse bit configuration avrdude arguments:
 -U lfuse:w:0x79:m -U hfuse:w:0xed:m 

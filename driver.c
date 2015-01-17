@@ -54,9 +54,9 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h> 
 
-#define MODE_MEMORY
+//#define MODE_MEMORY
 
-#ifdef MODE_MEMORY
+#ifdef MODE_MEMORY // only using eeprom if mode memory is enabled
 uint8_t EEMEM MODE_P;
 #endif
 
