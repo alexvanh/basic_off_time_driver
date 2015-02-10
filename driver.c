@@ -67,6 +67,13 @@ volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
 volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 // pwm level selected by ramping function
 volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
+// number of times light was on for a short period, used to enter
+// extended modes
+volatile uint8_t noinit_short __attribute__ ((section (".noinit")));
+// extended mode, 0 if in regular mode group
+volatile uint8_t noinit_extended __attribute__ ((section (".noinit")));
+// extended mode, 0 if in regular mode group
+volatile uint8_t noinit_extended_mode __attribute__ ((section (".noinit")));
 
 // PWM configuration
 #define PWM_PIN PB1
@@ -139,9 +146,41 @@ void ramp2()
 	}
 }
 
+static void inline strobe()
+{
+	while (1){
+		PWM_LVL = 255;		
+		_delay_ms(20);
+		PWM_LVL = 0;
+		_delay_ms(90);
+	}
+}
+
+static void inline sleep_ms(uint16_t ms)
+{
+    while(ms >= 1){
+        _delay_ms(1);
+        --ms;
+    }
+}
+
+static void inline strobe2(uint8_t on, uint8_t off)
+{
+	while (1){
+		PWM_LVL = 255;		
+		sleep_ms(on);
+		PWM_LVL = 0;
+		sleep_ms(off);
+	}
+}
 
 int main(void)
 {
+	// make a copy so we can reset the original
+	uint8_t decay = noinit_decay;
+	// set noinit data for next boot
+    noinit_decay = 0;
+	
 	// PWM setup 
     // set PWM pin to output
     DDRB |= _BV(PWM_PIN);
@@ -158,25 +197,22 @@ int main(void)
 	noinit_mode =  eeprom_read_byte(&MODE_P);
 	
 	// skip ramp selected mode (mode 5) if the selected level was lost
-	if (noinit_decay && noinit_mode == 5)
+	if (decay && noinit_mode == 5)
 	{
 		++noinit_mode;
 	}
 	#else // try to use mode from sram
 	
-	if (noinit_decay) // not short press, forget mode
+	if (decay) // not short press, forget mode
 	{
 		noinit_mode = 0;
 	}
 	#endif
 	
-	if (!noinit_decay) // no decay, it was a short press
+	if (!decay) // no decay, it was a short press
 	{
 		++noinit_mode;
 	}
-
-    // set noinit data for next boot
-    noinit_decay = 0;
 
     // mode needs to loop back around
     // (or the mode is invalid)
@@ -190,26 +226,76 @@ int main(void)
 	eeprom_write_byte(&MODE_P, noinit_mode); // save mode
 	#endif
 	
-    switch(noinit_mode){
-        case 0:
-        PWM_LVL = 0xFF;
-        break;
-        case 1:
-        PWM_LVL = 0x40;
-        break;
-        case 2:
-        PWM_LVL = 0x10;
-        break;
-        case 3:
-        PWM_LVL = 0x04;
-        break;
-        case 4:
-        ramp(); // ramping brightness selection
-        break;
-        case 5:
-        PWM_LVL = noinit_lvl; // use value selected by ramping function
-        break;
-    }
+	// extended mode section
+    // before the delay, light is on for a short period
+	++noinit_short;   
+    if (decay) // light was off for a long time
+	{
+		noinit_short = 0; // reset short counter
+		noinit_extended = 0;
+	}
+
+	if (noinit_extended > 0)
+	{
+		++noinit_extended_mode;
+	}
+	
+    if (!decay && noinit_short > 5 && noinit_extended == 0)
+	{
+		noinit_extended = 1;
+		noinit_extended_mode = 1;
+	}
+	
+	if (noinit_extended_mode > 3) // 4 extended modes
+	{
+		noinit_extended_mode = 0; // loop back to first mode
+	}
+	
+	if (noinit_extended) // extended modes
+	{
+		switch(noinit_extended_mode){
+	        case 0:
+	        strobe2(20,45);
+	        break;
+	        case 1:
+			strobe2(20,90);
+	        break;
+	        case 2:
+			strobe2(20,135);
+	        break;
+	        case 3:
+			strobe2(20,190);
+	        break;
+	    }    
+	}
+	else // standard modes
+	{
+	    switch(noinit_mode){
+	        case 0:
+	        PWM_LVL = 0xFF;
+	        break;
+	        case 1:
+	        PWM_LVL = 0x40;
+	        break;
+	        case 2:
+	        PWM_LVL = 0x10;
+	        break;
+	        case 3:
+	        PWM_LVL = 0x04;
+	        break;
+	        case 4:
+	        ramp(); // ramping brightness selection
+	        break;
+	        case 5:
+	        PWM_LVL = noinit_lvl; // use value selected by ramping function
+	        break;
+	    }
+	}
+
+    _delay_ms(100); // on for a long time
+    noinit_short = 0; // reset short counter
+	//noinit_extended = 0; // stay out of extended modes
+
     
     while(1);
     return 0;
