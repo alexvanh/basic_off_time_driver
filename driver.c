@@ -255,16 +255,16 @@ int main(void)
 	{
 		switch(noinit_extended_mode){
 	        case 0:
-	        strobe2(20,45);
+	        strobe2(20,20);
 	        break;
 	        case 1:
-			strobe2(20,90);
+			strobe2(20,40);
 	        break;
 	        case 2:
-			strobe2(20,135);
+			strobe2(20,80);
 	        break;
 	        case 3:
-			strobe2(20,190);
+			strobe2(20,120);
 	        break;
 	    }    
 	}
