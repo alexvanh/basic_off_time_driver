@@ -240,7 +240,7 @@ int main(void)
 		++noinit_extended_mode;
 	}
 	
-    if (!decay && noinit_short > 5 && noinit_extended == 0)
+    if (!decay && noinit_short > 2 && noinit_extended == 0)
 	{
 		noinit_extended = 1;
 		noinit_extended_mode = 1;
@@ -292,7 +292,7 @@ int main(void)
 	    }
 	}
 
-    _delay_ms(100); // on for a long time
+    _delay_ms(25); // on for a long time
     noinit_short = 0; // reset short counter
 	//noinit_extended = 0; // stay out of extended modes
 
