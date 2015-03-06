@@ -20,9 +20,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
- 
- 
+
+
+
 /* This firmware uses off-time memory for mode switching without
  * hardware modifications on nanjg drivers. This is accomplished by
  * storing a flag in an area of memory that does not get initialized.
@@ -52,21 +52,21 @@
 #include <stdlib.h>
 #include <util/delay.h>
 #include <avr/eeprom.h>
-#include <avr/pgmspace.h> 
+#include <avr/pgmspace.h>
 
-//#define MODE_MEMORY
-
-#ifdef MODE_MEMORY // only using eeprom if mode memory is enabled
+#define NO_MODE_MEMORY
 uint8_t EEMEM MODE_P;
-#endif
+
 
 // store in uninitialized memory so it will not be overwritten and
 // can still be read at startup after short (<500ms) power off
 // decay used to tell if user did a short press.
 volatile uint8_t noinit_decay __attribute__ ((section (".noinit")));
-volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
+//volatile uint8_t noinit_mode __attribute__ ((section (".noinit")));
 // pwm level selected by ramping function
 volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
+// 32 bits of data to check for decay
+volatile uint8_t noinit_data[4] __attribute__ ((section (".noinit")));
 
 // PWM configuration
 #define PWM_PIN PB1
@@ -98,7 +98,7 @@ uint8_t const ramp_LUT[] PROGMEM = { SIN_SQUARED };
 
 
 /* Rise-Fall Ramping brightness selection /\/\/\/\
- * cycle through PWM values from ramp_LUT (look up table). Traverse LUT 
+ * cycle through PWM values from ramp_LUT (look up table). Traverse LUT
  * forwards, then backwards. Current PWM value is saved in noinit_lvl so
  * it is available at next startup (after a short press).
 */
@@ -116,13 +116,13 @@ void ramp()
 			noinit_lvl = PWM_LVL; // remember after short power off
 			_delay_ms(RAMP_DELAY); //gives a period of x seconds
 		}
-		
+
 	}
 }
 
 /* Rising Ramping brightness selection //////
- * Cycle through PWM values from ramp_LUT (look up table). Current PWM 
- * value is saved in noinit_lvl so it is available at next startup 
+ * Cycle through PWM values from ramp_LUT (look up table). Current PWM
+ * value is saved in noinit_lvl so it is available at next startup
  * (after a short press)
 */
 void ramp2()
@@ -134,15 +134,67 @@ void ramp2()
 			noinit_lvl = PWM_LVL; // remember after short power off
 			_delay_ms(RAMP_DELAY); //gives a period of x seconds
 		}
-		
+
 		//_delay_ms(1000);
 	}
 }
 
+// takes the byte and returns the number of 1's (Hamming weight)
+uint8_t hamming_weight(uint8_t data)
+{
+	uint8_t count = 0;
+	uint8_t j = 0;
+	for ( j=0; j<8; j++) // each bit
+	{
+		// shift the byte by j to put the current bit in the lsb
+		// and mask it, then add it to the count.
+		count += ( data >> j )	& 0x1;
+
+	}
+
+	return count;
+}
 
 int main(void)
 {
-	// PWM setup 
+	uint8_t weight = 0;
+	uint8_t mode =  eeprom_read_byte(&MODE_P);
+
+	uint8_t i = 0;
+	for ( i=0; i<4; i++)
+	{
+		weight += hamming_weight( noinit_data[i] ); // count bits == 1
+
+		// reset data for next boot
+		noinit_data[i] = 0x00;
+	}
+
+	// decide what kind of press
+	if (weight == 0) // no bit decay, short press
+	{
+		++mode;
+	}
+	else if ( weight < 20 ) // threshold for medium press
+	{
+		if (mode == 0)
+		{
+			// which mode to go to when going backwards from mode 0
+			mode = 3;
+		}
+		else
+		{
+			--mode;
+		}
+	}
+	else
+	{
+		#ifdef NO_MODE_MEMORY
+		mode = 0;
+		#endif
+	}
+
+
+	// PWM setup
     // set PWM pin to output
     DDRB |= _BV(PWM_PIN);
     // PORTB = 0x00; // initialised to 0 anyway
@@ -152,45 +204,19 @@ int main(void)
     TCCR0B = PWM_SCL;
 
     PWM_LVL = 0;
-	
-	#ifdef 	MODE_MEMORY // get mode from eeprom
-	
-	noinit_mode =  eeprom_read_byte(&MODE_P);
-	
-	// skip ramp selected mode (mode 5) if the selected level was lost
-	if (noinit_decay && noinit_mode == 5)
-	{
-		++noinit_mode;
-	}
-	#else // try to use mode from sram
-	
-	if (noinit_decay) // not short press, forget mode
-	{
-		noinit_mode = 0;
-	}
-	#endif
-	
-	if (!noinit_decay) // no decay, it was a short press
-	{
-		++noinit_mode;
-	}
-
-    // set noinit data for next boot
-    noinit_decay = 0;
 
     // mode needs to loop back around
     // (or the mode is invalid)
-    if (noinit_mode > 5) // there are 6 modes
+    if (mode > 5) // there are 6 modes
     {
-        noinit_mode = 0;
+        mode = 0;
     }
-    
-    #ifdef 	MODE_MEMORY // remember mode in eeprom
+
+
     eeprom_busy_wait(); //make sure eeprom is ready
-	eeprom_write_byte(&MODE_P, noinit_mode); // save mode
-	#endif
-	
-    switch(noinit_mode){
+	eeprom_write_byte(&MODE_P, mode); // save mode
+
+    switch(mode){
         case 0:
         PWM_LVL = 0xFF;
         break;
@@ -210,7 +236,7 @@ int main(void)
         PWM_LVL = noinit_lvl; // use value selected by ramping function
         break;
     }
-    
+
     while(1);
     return 0;
 }
