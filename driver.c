@@ -54,7 +54,7 @@
 #include <avr/eeprom.h>
 #include <avr/pgmspace.h>
 
-#define NO_MODE_MEMORY
+//#define NO_MODE_MEMORY
 uint8_t EEMEM MODE_P;
 
 
