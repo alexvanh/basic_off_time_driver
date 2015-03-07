@@ -156,6 +156,16 @@ static void inline strobe()
 	}
 }
 
+static void inline fet_strobe()
+{
+	while (1){
+		PORTB |= _BV(PB0); // on
+		_delay_ms(20);
+		PORTB &= ~_BV(PB0); // off
+		_delay_ms(90);
+	}
+}
+
 static void inline sleep_ms(uint16_t ms)
 {
     while(ms >= 1){
@@ -191,6 +201,8 @@ int main(void)
     TCCR0B = PWM_SCL;
 
     PWM_LVL = 0;
+	
+	DDRB |= _BV(PB0);
 	
 	#ifdef 	MODE_MEMORY // get mode from eeprom
 	
@@ -246,7 +258,7 @@ int main(void)
 		noinit_extended_mode = 1;
 	}
 	
-	if (noinit_extended_mode > 3) // 4 extended modes
+	if (noinit_extended_mode > 1) // 2 extended modes
 	{
 		noinit_extended_mode = 0; // loop back to first mode
 	}
@@ -255,16 +267,10 @@ int main(void)
 	{
 		switch(noinit_extended_mode){
 	        case 0:
-	        strobe2(20,20);
+	        strobe();
 	        break;
 	        case 1:
-			strobe2(20,40);
-	        break;
-	        case 2:
-			strobe2(20,80);
-	        break;
-	        case 3:
-			strobe2(20,120);
+			fet_strobe();
 	        break;
 	    }    
 	}
