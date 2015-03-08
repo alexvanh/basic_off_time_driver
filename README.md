@@ -44,4 +44,17 @@ large number of writes required by the smooth ramp could cause the
 eeprom to fail if left on for an extended amount of time.
 
 Example of working fuse bit configuration avrdude arguments:
--U lfuse:w:0x79:m -U hfuse:w:0xed:m 
+-U lfuse:w:0x79:m -U hfuse:w:0xed:m
+
+#medium_press Branch
+This branch is an attempt at implementing a medium length press to traverse the
+modes in reverse.
+An array of bytes is read and the number of 1 bits is summed (Hamming weight). The bytes are
+then set to 0 for the next boot. The Hamming weight indicates how many bits
+have decayed and can be used to estimate the amount of time the light has been off.
+I determined empirically that around 70% the bits in the SRAM favour a state of
+1 after a long off time. The Hamming weight is compared to a threshold to 
+determine if the press was a medium press. 
+In practice I found that the time interval for a medium press is too short (~500-800ms), so it
+is too difficult to medium press. By changing the threshold and number of bits it may be possible
+to make it work more reliably, but it may require calibration for each individual attiny13.
