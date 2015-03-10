@@ -70,9 +70,9 @@ volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
 // number of times light was on for a short period, used to enter
 // extended modes
 volatile uint8_t noinit_short __attribute__ ((section (".noinit")));
-// extended mode, 0 if in regular mode group
+// extended mode enable, 0 if in regular mode group
 volatile uint8_t noinit_strobe __attribute__ ((section (".noinit")));
-// extended mode, 0 if in regular mode group
+// extended mode
 volatile uint8_t noinit_strobe_mode __attribute__ ((section (".noinit")));
 
 // PWM configuration
@@ -199,66 +199,52 @@ int main(void)
 	uint8_t decay = noinit_decay;
 	// set noinit data for next boot
     noinit_decay = 0;
-	
-	#ifdef 	MODE_MEMORY // get mode from eeprom
-	
-	noinit_mode =  eeprom_read_byte(&MODE_P);
-	
-	// skip ramp selected mode (mode 5) if the selected level was lost
-	if (decay && noinit_mode == 5)
-	{
-		++noinit_mode;
-	}
-	#else // try to use mode from sram
-	
-	if (decay) // not short press, forget mode
+
+	if (decay) // not short press, all noinit data invalid
 	{
 		noinit_mode = 0;
+		noinit_short = 0; // reset short counter
+		noinit_strobe = 0;
+		noinit_strobe_mode = 0;
+		
+		#ifdef 	MODE_MEMORY // get mode from eeprom
+		noinit_mode =  eeprom_read_byte(&MODE_P);
+		// skip ramp selected mode (mode 5) if the level was lost
+		if (noinit_mode == 5)
+		{
+			++noinit_mode;
+		}
+		#endif
 	}
-	#endif
-	
-	if (!decay) // no decay, it was a short press
+	else
 	{
 		++noinit_mode;
+		++noinit_short;
 	}
-
-    // mode needs to loop back around
+	
+	
+	// mode needs to loop back around
     // (or the mode is invalid)
     if (noinit_mode > 5) // there are 6 modes
     {
         noinit_mode = 0;
     }
-    
-    #ifdef 	MODE_MEMORY // remember mode in eeprom
+    #ifdef MODE_MEMORY // remember mode in eeprom
     eeprom_busy_wait(); //make sure eeprom is ready
 	eeprom_write_byte(&MODE_P, noinit_mode); // save mode
 	#endif
-	
-	// extended mode section
-    // before the delay, light is on for a short period
-	++noinit_short;   
-    if (decay) // light was off for a long time
-	{
-		noinit_short = 0; // reset short counter
-		noinit_strobe = 0;
-	}
-
-	if (noinit_strobe > 0)
-	{
-		++noinit_strobe_mode;
-	}
-	
-    if (!decay && noinit_short > 2 && noinit_strobe == 0)
+    
+	if (noinit_short > 2 && !noinit_strobe)
 	{
 		noinit_strobe = 1;
-		noinit_strobe_mode = 1;
+		noinit_strobe_mode = 0;
 	}
-	
-	if (noinit_strobe_mode > 0) // only 1 strobe mode, could add more...
+    
+    if (noinit_strobe_mode > 0) // only 1 strobe mode, could add more...
 	{
 		noinit_strobe_mode = 0; // loop back to first mode
 	}
-	
+		
 	//setup pins for output. Note that these pins could be the same pin 
 	DDRB |= _BV(PWM_PIN) | _BV(STROBE_PIN);
 	
@@ -300,10 +286,10 @@ int main(void)
         break;
     }
 	    
-    _delay_ms(25); // on for a long time
-    noinit_short = 0; // reset short counter
-	//noinit_strobe = 0; // stay out of extended modes
-
+	// keep track of the number of very short on times
+	// used to decide when to go into strobe mode
+    _delay_ms(25); // on for too long
+    noinit_short = 0; // reset short press counter
     
     while(1);
     return 0;
