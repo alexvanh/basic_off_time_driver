@@ -71,15 +71,18 @@ volatile uint8_t noinit_lvl __attribute__ ((section (".noinit")));
 // extended modes
 volatile uint8_t noinit_short __attribute__ ((section (".noinit")));
 // extended mode, 0 if in regular mode group
-volatile uint8_t noinit_extended __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_strobe __attribute__ ((section (".noinit")));
 // extended mode, 0 if in regular mode group
-volatile uint8_t noinit_extended_mode __attribute__ ((section (".noinit")));
+volatile uint8_t noinit_strobe_mode __attribute__ ((section (".noinit")));
 
 // PWM configuration
 #define PWM_PIN PB1
 #define PWM_LVL OCR0B
 #define PWM_TCR 0x21
 #define PWM_SCL 0x01
+
+// This will be the same as the PWM_PIN on a stock driver
+#define STROBE_PIN PB1
 
 /* Ramping configuration.
  * Configure the LUT used for the ramping function and the delay between
@@ -146,7 +149,8 @@ void ramp2()
 	}
 }
 
-static void inline strobe()
+// strobe just by changing pwm, can use this with normal pwm pin setup
+static void inline pwm_strobe()
 {
 	while (1){
 		PWM_LVL = 255;		
@@ -156,12 +160,14 @@ static void inline strobe()
 	}
 }
 
-static void inline fet_strobe()
+// strobe using the STROBE_PIN. Note that PWM on that pin should not be
+// set up, or it should be disabled before calling this function.
+static void inline strobe()
 {
 	while (1){
-		PORTB |= _BV(PB0); // on
+		PORTB |= _BV(STROBE_PIN); // on
 		_delay_ms(20);
-		PORTB &= ~_BV(PB0); // off
+		PORTB &= ~_BV(STROBE_PIN); // off
 		_delay_ms(90);
 	}
 }
@@ -174,12 +180,15 @@ static void inline sleep_ms(uint16_t ms)
     }
 }
 
+// Variable strobe
+// strobe using the STROBE_PIN. Note that PWM on that pin should not be
+// set up, or it should be disabled before calling this function.
 static void inline strobe2(uint8_t on, uint8_t off)
 {
 	while (1){
-		PWM_LVL = 255;		
+		PORTB |= _BV(STROBE_PIN); // on	
 		sleep_ms(on);
-		PWM_LVL = 0;
+		PORTB &= ~_BV(STROBE_PIN); // off
 		sleep_ms(off);
 	}
 }
@@ -190,19 +199,6 @@ int main(void)
 	uint8_t decay = noinit_decay;
 	// set noinit data for next boot
     noinit_decay = 0;
-	
-	// PWM setup 
-    // set PWM pin to output
-    DDRB |= _BV(PWM_PIN);
-    // PORTB = 0x00; // initialised to 0 anyway
-
-    // Initialise PWM on output pin and set level to zero
-    TCCR0A = PWM_TCR;
-    TCCR0B = PWM_SCL;
-
-    PWM_LVL = 0;
-	
-	DDRB |= _BV(PB0);
 	
 	#ifdef 	MODE_MEMORY // get mode from eeprom
 	
@@ -244,63 +240,69 @@ int main(void)
     if (decay) // light was off for a long time
 	{
 		noinit_short = 0; // reset short counter
-		noinit_extended = 0;
+		noinit_strobe = 0;
 	}
 
-	if (noinit_extended > 0)
+	if (noinit_strobe > 0)
 	{
-		++noinit_extended_mode;
+		++noinit_strobe_mode;
 	}
 	
-    if (!decay && noinit_short > 2 && noinit_extended == 0)
+    if (!decay && noinit_short > 2 && noinit_strobe == 0)
 	{
-		noinit_extended = 1;
-		noinit_extended_mode = 1;
+		noinit_strobe = 1;
+		noinit_strobe_mode = 1;
 	}
 	
-	if (noinit_extended_mode > 1) // 2 extended modes
+	if (noinit_strobe_mode > 0) // only 1 strobe mode, could add more...
 	{
-		noinit_extended_mode = 0; // loop back to first mode
+		noinit_strobe_mode = 0; // loop back to first mode
 	}
 	
-	if (noinit_extended) // extended modes
+	//setup pins for output. Note that these pins could be the same pin 
+	DDRB |= _BV(PWM_PIN) | _BV(STROBE_PIN);
+	
+	// extended modes, 1 for now, leaving extra code in case I want to 
+	// add more strobes later
+	if (noinit_strobe)
 	{
-		switch(noinit_extended_mode){
+		switch(noinit_strobe_mode){
 	        case 0:
 	        strobe();
 	        break;
-	        case 1:
-			fet_strobe();
-	        break;
 	    }    
 	}
-	else // standard modes
-	{
-	    switch(noinit_mode){
-	        case 0:
-	        PWM_LVL = 0xFF;
-	        break;
-	        case 1:
-	        PWM_LVL = 0x40;
-	        break;
-	        case 2:
-	        PWM_LVL = 0x10;
-	        break;
-	        case 3:
-	        PWM_LVL = 0x04;
-	        break;
-	        case 4:
-	        ramp(); // ramping brightness selection
-	        break;
-	        case 5:
-	        PWM_LVL = noinit_lvl; // use value selected by ramping function
-	        break;
-	    }
-	}
 
+	// Initialise PWM on output pin and set level to zero
+    TCCR0A = PWM_TCR;
+    TCCR0B = PWM_SCL;
+
+    PWM_LVL = 0;
+    
+    switch(noinit_mode){
+        case 0:
+        PWM_LVL = 0xFF;
+        break;
+        case 1:
+        PWM_LVL = 0x40;
+        break;
+        case 2:
+        PWM_LVL = 0x10;
+        break;
+        case 3:
+        PWM_LVL = 0x04;
+        break;
+        case 4:
+        ramp(); // ramping brightness selection
+        break;
+        case 5:
+        PWM_LVL = noinit_lvl; // use value selected by ramping function
+        break;
+    }
+	    
     _delay_ms(25); // on for a long time
     noinit_short = 0; // reset short counter
-	//noinit_extended = 0; // stay out of extended modes
+	//noinit_strobe = 0; // stay out of extended modes
 
     
     while(1);
