@@ -20,9 +20,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
- 
- 
- 
+
+
+
 /* This firmware uses off-time memory for mode switching without
  * hardware modifications on nanjg drivers. This is accomplished by
  * storing a flag in an area of memory that does not get initialized.
@@ -52,7 +52,7 @@
 #include <stdlib.h>
 #include <util/delay.h>
 #include <avr/eeprom.h>
-#include <avr/pgmspace.h> 
+#include <avr/pgmspace.h>
 
 //#define MODE_MEMORY
 
@@ -108,68 +108,68 @@ uint8_t const ramp_LUT[] PROGMEM = { SIN_SQUARED };
 
 
 /* Rise-Fall Ramping brightness selection /\/\/\/\
- * cycle through PWM values from ramp_LUT (look up table). Traverse LUT 
+ * cycle through PWM values from ramp_LUT (look up table). Traverse LUT
  * forwards, then backwards. Current PWM value is saved in noinit_lvl so
  * it is available at next startup (after a short press).
 */
 void ramp()
 {
-	uint8_t i = 0;
-	while (1){
-		for (i = 0; i < sizeof(ramp_LUT); i++){
-			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
-			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(RAMP_DELAY); //gives a period of x seconds
-		}
-		for (i = sizeof(ramp_LUT) - 1; i > 0; i--){
-			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
-			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(RAMP_DELAY); //gives a period of x seconds
-		}
-		
-	}
+    uint8_t i = 0;
+    while (1){
+        for (i = 0; i < sizeof(ramp_LUT); i++){
+            PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+            noinit_lvl = PWM_LVL; // remember after short power off
+            _delay_ms(RAMP_DELAY); //gives a period of x seconds
+        }
+        for (i = sizeof(ramp_LUT) - 1; i > 0; i--){
+            PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+            noinit_lvl = PWM_LVL; // remember after short power off
+            _delay_ms(RAMP_DELAY); //gives a period of x seconds
+        }
+
+    }
 }
 
 /* Rising Ramping brightness selection //////
- * Cycle through PWM values from ramp_LUT (look up table). Current PWM 
- * value is saved in noinit_lvl so it is available at next startup 
+ * Cycle through PWM values from ramp_LUT (look up table). Current PWM
+ * value is saved in noinit_lvl so it is available at next startup
  * (after a short press)
 */
 void ramp2()
 {
-	uint8_t i = 0;
-	while (1){
-		for (i = 0; i < sizeof(ramp_LUT); i++){
-			PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
-			noinit_lvl = PWM_LVL; // remember after short power off
-			_delay_ms(RAMP_DELAY); //gives a period of x seconds
-		}
-		
-		//_delay_ms(1000);
-	}
+    uint8_t i = 0;
+    while (1){
+        for (i = 0; i < sizeof(ramp_LUT); i++){
+            PWM_LVL = pgm_read_byte(&(ramp_LUT[i]));
+            noinit_lvl = PWM_LVL; // remember after short power off
+            _delay_ms(RAMP_DELAY); //gives a period of x seconds
+        }
+
+        //_delay_ms(1000);
+    }
 }
 
 // strobe just by changing pwm, can use this with normal pwm pin setup
 static void inline pwm_strobe()
 {
-	while (1){
-		PWM_LVL = 255;		
-		_delay_ms(20);
-		PWM_LVL = 0;
-		_delay_ms(90);
-	}
+    while (1){
+        PWM_LVL = 255;
+        _delay_ms(20);
+        PWM_LVL = 0;
+        _delay_ms(90);
+    }
 }
 
 // strobe using the STROBE_PIN. Note that PWM on that pin should not be
 // set up, or it should be disabled before calling this function.
 static void inline strobe()
 {
-	while (1){
-		PORTB |= _BV(STROBE_PIN); // on
-		_delay_ms(20);
-		PORTB &= ~_BV(STROBE_PIN); // off
-		_delay_ms(90);
-	}
+    while (1){
+        PORTB |= _BV(STROBE_PIN); // on
+        _delay_ms(20);
+        PORTB &= ~_BV(STROBE_PIN); // off
+        _delay_ms(90);
+    }
 }
 
 static void inline sleep_ms(uint16_t ms)
@@ -185,45 +185,45 @@ static void inline sleep_ms(uint16_t ms)
 // set up, or it should be disabled before calling this function.
 static void inline strobe2(uint8_t on, uint8_t off)
 {
-	while (1){
-		PORTB |= _BV(STROBE_PIN); // on	
-		sleep_ms(on);
-		PORTB &= ~_BV(STROBE_PIN); // off
-		sleep_ms(off);
-	}
+    while (1){
+        PORTB |= _BV(STROBE_PIN); // on
+        sleep_ms(on);
+        PORTB &= ~_BV(STROBE_PIN); // off
+        sleep_ms(off);
+    }
 }
 
 int main(void)
 {
-	// make a copy so we can reset the original
-	uint8_t decay = noinit_decay;
-	// set noinit data for next boot
+    // make a copy so we can reset the original
+    uint8_t decay = noinit_decay;
+    // set noinit data for next boot
     noinit_decay = 0;
 
-	if (decay) // not short press, all noinit data invalid
-	{
-		noinit_mode = 0;
-		noinit_short = 0; // reset short counter
-		noinit_strobe = 0;
-		noinit_strobe_mode = 0;
-		
-		#ifdef 	MODE_MEMORY // get mode from eeprom
-		noinit_mode =  eeprom_read_byte(&MODE_P);
-		// skip ramp selected mode (mode 5) if the level was lost
-		if (noinit_mode == 5)
-		{
-			++noinit_mode;
-		}
-		#endif
-	}
-	else
-	{
-		++noinit_mode;
-		++noinit_short;
-	}
-	
-	
-	// mode needs to loop back around
+    if (decay) // not short press, all noinit data invalid
+    {
+        noinit_mode = 0;
+        noinit_short = 0; // reset short counter
+        noinit_strobe = 0;
+        noinit_strobe_mode = 0;
+
+        #ifdef  MODE_MEMORY // get mode from eeprom
+        noinit_mode =  eeprom_read_byte(&MODE_P);
+        // skip ramp selected mode (mode 5) if the level was lost
+        if (noinit_mode == 5)
+        {
+            ++noinit_mode;
+        }
+        #endif
+    }
+    else
+    {
+        ++noinit_mode;
+        ++noinit_short;
+    }
+
+
+    // mode needs to loop back around
     // (or the mode is invalid)
     if (noinit_mode > 5) // there are 6 modes
     {
@@ -231,40 +231,40 @@ int main(void)
     }
     #ifdef MODE_MEMORY // remember mode in eeprom
     eeprom_busy_wait(); //make sure eeprom is ready
-	eeprom_write_byte(&MODE_P, noinit_mode); // save mode
-	#endif
-    
-	if (noinit_short > 2 && !noinit_strobe)
-	{
-		noinit_strobe = 1;
-		noinit_strobe_mode = 0;
-	}
-    
-    if (noinit_strobe_mode > 0) // only 1 strobe mode, could add more...
-	{
-		noinit_strobe_mode = 0; // loop back to first mode
-	}
-		
-	//setup pins for output. Note that these pins could be the same pin 
-	DDRB |= _BV(PWM_PIN) | _BV(STROBE_PIN);
-	
-	// extended modes, 1 for now, leaving extra code in case I want to 
-	// add more strobes later
-	if (noinit_strobe)
-	{
-		switch(noinit_strobe_mode){
-	        case 0:
-	        strobe();
-	        break;
-	    }    
-	}
+    eeprom_write_byte(&MODE_P, noinit_mode); // save mode
+    #endif
 
-	// Initialise PWM on output pin and set level to zero
+    if (noinit_short > 2 && !noinit_strobe)
+    {
+        noinit_strobe = 1;
+        noinit_strobe_mode = 0;
+    }
+
+    if (noinit_strobe_mode > 0) // only 1 strobe mode, could add more...
+    {
+        noinit_strobe_mode = 0; // loop back to first mode
+    }
+
+    //setup pins for output. Note that these pins could be the same pin
+    DDRB |= _BV(PWM_PIN) | _BV(STROBE_PIN);
+
+    // extended modes, 1 for now, leaving extra code in case I want to
+    // add more strobes later
+    if (noinit_strobe)
+    {
+        switch(noinit_strobe_mode){
+            case 0:
+            strobe();
+            break;
+        }
+    }
+
+    // Initialise PWM on output pin and set level to zero
     TCCR0A = PWM_TCR;
     TCCR0B = PWM_SCL;
 
     PWM_LVL = 0;
-    
+
     switch(noinit_mode){
         case 0:
         PWM_LVL = 0xFF;
@@ -285,12 +285,12 @@ int main(void)
         PWM_LVL = noinit_lvl; // use value selected by ramping function
         break;
     }
-	    
-	// keep track of the number of very short on times
-	// used to decide when to go into strobe mode
+
+    // keep track of the number of very short on times
+    // used to decide when to go into strobe mode
     _delay_ms(25); // on for too long
     noinit_short = 0; // reset short press counter
-    
+
     while(1);
     return 0;
 }
