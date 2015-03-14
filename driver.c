@@ -196,12 +196,7 @@ static void inline strobe2(uint8_t on, uint8_t off)
 
 int main(void)
 {
-    // make a copy so we can reset the original
-    uint8_t decay = noinit_decay;
-    // set noinit data for next boot
-    noinit_decay = 0;
-
-    if (decay) // not short press, all noinit data invalid
+    if (noinit_decay) // not short press, all noinit data invalid
     {
         noinit_mode = 0;
         noinit_short = 0; // reset short counter
@@ -220,6 +215,7 @@ int main(void)
         ++noinit_short;
     }
 
+	noinit_decay = 0;
 
     // mode needs to loop back around
     // (or the mode is invalid)
