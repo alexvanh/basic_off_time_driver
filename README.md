@@ -1,17 +1,26 @@
 # basic_off_time_driver
 Flashlight driver firmware with ramping using off-time to 
 switch modes on attiny13 nanjg drivers.
+#Modes
+The flashlight driver has 6 main modes: 
+high, medium, low, moonlight, smooth ramp, ramp selection. (plus a hidden strobe mode).
 
-The flashlight driver has 6 modes: 
-high, medium, low, moonlight, smooth ramp, ramp selection
-
-The driver has optional mode memory, enabled if MODE_MEMORY is defined. 
 To change modes the user must turn the flashlight off then on in less 
 than about 500ms (off-time mode switching), such as by quickly pressing
-the switch halfway. The smooth ramp mode fades the light in and out. A 
-short press puts the light into ramp selection mode, where the
-brightness is the level selected in the ramp mode.
+the switch halfway.
+The driver has optional mode memory, enabled if MODE_MEMORY is defined
+when compiled. The current mode the driver is in is memorized if in that mode for more than 1 second. The light will come on in the same mode the next time the light turns on. 
 
+#Ramping
+When the user goes in to ramping mode the light will smoothly increase 
+and decrease brightness. A short press will select the current brightness
+and the light will stay at that level in ramp selection mode.
+
+#Strobe
+To access the strobe the user must very quickly press the switch at least
+3 times in a row, with very short on times in between. 
+
+#Off-time mode switching implementation
 Previously off-time mode switching was not possible without hardware
 modifications (such as adding a capacitor to a spare pin of the 
 attiny). The method presented in this firmware can be used on a stock 
@@ -43,5 +52,6 @@ Without ram retention, the ramp selection would rely on the eeprom. The
 large number of writes required by the smooth ramp could cause the 
 eeprom to fail if left on for an extended amount of time.
 
+#Fuse bits
 Example of working fuse bit configuration avrdude arguments:
 -U lfuse:w:0x79:m -U hfuse:w:0xed:m 
