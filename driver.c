@@ -58,6 +58,7 @@
 
 #ifdef MODE_MEMORY // only using eeprom if mode memory is enabled
 uint8_t EEMEM MODE_P;
+uint8_t EEMEM LVL_P;
 #endif
 
 // store in uninitialized memory so it will not be overwritten and
@@ -206,14 +207,11 @@ int main(void)
         noinit_short = 0; // reset short counter
         noinit_strobe = 0;
         noinit_strobe_mode = 0;
+        noinit_lvl = 0;
 
         #ifdef  MODE_MEMORY // get mode from eeprom
         noinit_mode =  eeprom_read_byte(&MODE_P);
-        // skip ramp selected mode (mode 5) if the level was lost
-        if (noinit_mode == 5)
-        {
-            ++noinit_mode;
-        }
+		noinit_lvl = eeprom_read_byte(&LVL_P);
         #endif
     }
     else
@@ -229,7 +227,7 @@ int main(void)
     {
         noinit_mode = 0;
     }
-
+    
     if (noinit_short > 2 && !noinit_strobe)
     {
         noinit_strobe = 1;
@@ -275,13 +273,15 @@ int main(void)
         PWM_LVL = 0x04;
         break;
         case 4:
+        #ifdef MODE_MEMORY // remember mode in eeprom
+        // save mode without delay, since ramp() will not return.
+	    eeprom_busy_wait(); //make sure eeprom is ready
+	    eeprom_write_byte(&MODE_P, noinit_mode); // save mode
+	    #endif
         ramp(); // ramping brightness selection
         break;
         case 5:
         PWM_LVL = noinit_lvl; // use value selected by ramping function
-        #ifdef MODE_MEMORY // remember mode in eeprom
-        
-        #endif
         break;
     }
 
@@ -289,13 +289,18 @@ int main(void)
     // used to decide when to go into strobe mode
     _delay_ms(25); // on for too long
     noinit_short = 0; // reset short press counter
-	
+    
     #ifdef MODE_MEMORY // remember mode in eeprom
-    _delay_ms(1000); // only after 1 second
     eeprom_busy_wait(); //make sure eeprom is ready
     eeprom_write_byte(&MODE_P, noinit_mode); // save mode
+    // only save level if it was set, to reduce writes. Not based on 
+    // mode number in case mode orders change in code.
+    if (noinit_lvl != 0)
+    {
+		eeprom_busy_wait(); //make sure eeprom is ready
+	    eeprom_write_byte(&LVL_P, noinit_lvl); // save level
+	}
     #endif
-    
     while(1);
     return 0;
 }
