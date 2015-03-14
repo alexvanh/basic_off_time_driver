@@ -229,10 +229,6 @@ int main(void)
     {
         noinit_mode = 0;
     }
-    #ifdef MODE_MEMORY // remember mode in eeprom
-    eeprom_busy_wait(); //make sure eeprom is ready
-    eeprom_write_byte(&MODE_P, noinit_mode); // save mode
-    #endif
 
     if (noinit_short > 2 && !noinit_strobe)
     {
@@ -283,6 +279,9 @@ int main(void)
         break;
         case 5:
         PWM_LVL = noinit_lvl; // use value selected by ramping function
+        #ifdef MODE_MEMORY // remember mode in eeprom
+        
+        #endif
         break;
     }
 
@@ -290,7 +289,13 @@ int main(void)
     // used to decide when to go into strobe mode
     _delay_ms(25); // on for too long
     noinit_short = 0; // reset short press counter
-
+	
+    #ifdef MODE_MEMORY // remember mode in eeprom
+    _delay_ms(1000); // only after 1 second
+    eeprom_busy_wait(); //make sure eeprom is ready
+    eeprom_write_byte(&MODE_P, noinit_mode); // save mode
+    #endif
+    
     while(1);
     return 0;
 }
