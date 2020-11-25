@@ -1,3 +1,5 @@
+Update: After approximately 6 years of use of this firmware, the off-time mode switching no longer works correctly. An off-time of even greater than 1 minute is interpreted as a momentary button press (off-time < 500ms). The flashlight can malfunction and behave like a "next mode memory" flashlight and can also unintentionally enter the hidden strobe mode. The nature of the decay of the bits in SRAM after the ATTiny is powered down has seemingly changed over time. As a result, I would consider this method of determining the off-time of the flashlight to be unreliable for long term use. 
+
 # basic_off_time_driver
 Flashlight driver firmware with ramping using off-time to 
 switch modes on attiny13 nanjg drivers.
